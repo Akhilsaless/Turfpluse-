@@ -1,4 +1,5 @@
 import { optionalSetting } from "./server/settings";
+import { logFailure } from "./server/diagnostics";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -133,7 +134,8 @@ app.get("/api/meeting", async (_req, res) => {
       ),
       servedAt: new Date().toISOString(),
     });
-  } catch {
+  } catch (error) {
+    logFailure("meeting-read", error);
     res.status(503).json({ error: "Verified meeting temporarily unavailable" });
   }
 });
@@ -158,7 +160,8 @@ app.get("/api/health", async (_req, res) => {
       integrationsConfigured: Object.values(checks).every(Boolean),
       checks,
     });
-  } catch {
+  } catch (error) {
+    logFailure("health-read", error);
     res
       .status(503)
       .json({ status: "unavailable", integrationsConfigured: false });
