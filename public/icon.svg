@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b131e"/>
+      <stop offset="50%" stop-color="#0d2818"/>
+      <stop offset="100%" stop-color="#041f12"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+    <linearGradient id="emerald" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)" stroke="#1e3a2b" stroke-width="6"/>
+
+  <!-- Subtle race track rings -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#166534" stroke-width="1.5" stroke-dasharray="8 8" opacity="0.4"/>
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#22c55e" stroke-width="1" opacity="0.2"/>
+
+  <!-- Thoroughbred galloping silhouette in stylized geometric gold -->
+  <g transform="translate(60, 95) scale(0.76)">
+    <!-- Horse Body & Head -->
+    <path d="M 380 90 
+             C 365 70, 340 55, 320 60 
+             C 305 64, 298 75, 290 90
+             C 275 80, 260 85, 250 95
+             C 240 105, 220 120, 195 130
+             C 170 140, 140 145, 110 160
+             C 80 180, 60 210, 50 240
+             C 45 255, 35 285, 10 300
+             C 5 305, 15 315, 25 310
+             C 50 295, 75 270, 90 250
+             C 95 240, 110 230, 130 225
+             C 120 250, 105 280, 95 320
+             C 90 340, 80 370, 60 400
+             C 70 405, 80 395, 90 380
+             C 115 340, 130 300, 145 260
+             C 175 255, 210 255, 240 265
+             C 255 295, 265 330, 270 370
+             C 272 385, 280 400, 290 395
+             C 295 385, 295 370, 290 350
+             C 285 315, 280 280, 275 250
+             C 310 240, 340 220, 370 190
+             C 390 170, 420 155, 450 145
+             C 465 140, 475 130, 460 120
+             C 435 125, 410 135, 390 145
+             C 385 135, 385 115, 390 100 Z" 
+          fill="url(#gold)" filter="url(#glow)"/>
+
+    <!-- Mane and Speed Accent Lines -->
+    <path d="M 285 70 Q 255 60 220 85 Q 240 100 270 95 Z" fill="#fef08a" opacity="0.8"/>
+    <path d="M 315 55 Q 290 50 265 70" stroke="#fef08a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 350 75 Q 320 65 300 85" stroke="#fef08a" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Pulse telemetry / Intelligence waveform -->
+  <g transform="translate(64, 375)">
+    <path d="M 0 30 L 110 30 L 135 10 L 155 45 L 180 0 L 210 50 L 235 20 L 255 30 L 384 30" 
+          fill="none" stroke="url(#emerald)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    <!-- Radar ping node -->
+    <circle cx="180" cy="0" r="7" fill="#34d399" filter="url(#glow)"/>
+    <circle cx="180" cy="0" r="14" fill="none" stroke="#34d399" stroke-width="2" opacity="0.5"/>
+  </g>
+
+  <!-- Brand text badge -->
+  <text x="256" y="455" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="800" fill="#f8fafc" letter-spacing="4">TURFPULSE</text>
+  <text x="256" y="478" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" fill="#10b981" letter-spacing="3">RACE INTELLIGENCE</text>
+</svg>

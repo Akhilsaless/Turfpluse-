@@ -1,0 +1,6 @@
+{
+  "name": "TurfPulse - Horse Racing Intelligence",
+  "description": "Calm, fast race-centre intelligence platform with explainable model analysis, live updates, and transparent race-day tracking for Kolkata RCTC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
