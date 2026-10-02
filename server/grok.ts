@@ -1,5 +1,17 @@
 import { optionalSetting } from "./settings";
 import type { Meeting } from "../src/live/types";
+export function grokFailureCode(status: number, body: unknown): string {
+  const data = body as { error?: unknown; message?: unknown } | null;
+  const error = data?.error as { message?: unknown } | null;
+  const message = [data?.message, typeof data?.error === "string" ? data.error : error?.message]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ").slice(0, 4096).toLowerCase();
+  let reason = "";
+  if (/credit|insufficient.*balance|spending limit/.test(message)) reason = "CREDIT_REQUIRED";
+  else if (/api.?key|authentication|unauthorized|invalid.*token/.test(message)) reason = "INVALID_API_KEY";
+  else if (/model.*(not found|does not exist|access|unavailable)/.test(message)) reason = "MODEL_ACCESS";
+  return `XAI_HTTP_${status}${reason ? `_${reason}` : ""}`;
+}
 export async function grokAnalysis(
   meeting: Meeting,
   question: string,
@@ -78,8 +90,9 @@ export async function grokAnalysis(
     }),
   });
   if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
     throw Object.assign(new Error("Grok unavailable"), {
-      code: `XAI_HTTP_${response.status}`,
+      code: grokFailureCode(response.status, body),
     });
   }
   const data = await response.json();

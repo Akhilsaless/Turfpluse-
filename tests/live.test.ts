@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { initialMeeting, latestSnapshot, performance } from "../src/live/model";
 import { applyChange } from "../server/events";
 import { syncFeeds, publicHealth, type Feed } from "../server/sources";
-import { grokAnalysis } from "../server/grok";
+import { grokAnalysis, grokFailureCode } from "../server/grok";
 import type { Change, Meeting } from "../src/live/types";
 mock.method(Date, "now", () => Date.parse("2026-10-03T14:00:00+05:30"));
 const event = (patch: Partial<Change> = {}): Change => ({
@@ -270,6 +270,12 @@ test("feed rejects uncited domains and malformed batch without partial mutation"
   );
   assert.equal((await store.read()).events.length, 0);
   assert.equal((await store.read()).sources[0].state, "failed");
+});
+test("Grok diagnostics categorize failures without including provider text or secrets", () => {
+  assert.equal(grokFailureCode(400, { error: "Incorrect API key: secret-token" }), "XAI_HTTP_400_INVALID_API_KEY");
+  assert.equal(grokFailureCode(403, { error: { message: "Insufficient credits for team private-id" } }), "XAI_HTTP_403_CREDIT_REQUIRED");
+  assert.equal(grokFailureCode(403, { error: { message: "Model does not exist" } }), "XAI_HTTP_403_MODEL_ACCESS");
+  assert.equal(grokFailureCode(500, null), "XAI_HTTP_500");
 });
 test("Grok fails explicitly instead of returning invented analysis", async () => {
   const old = process.env.XAI_API_KEY;
