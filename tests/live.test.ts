@@ -287,7 +287,7 @@ test("Grok fails explicitly instead of returning invented analysis", async () =>
       "analyse",
       async () => new Response("{}", { status: 500 }),
     ),
-    /unavailable/,
+    { message: "Grok unavailable", code: "XAI_HTTP_500" },
   );
   const response = await grokAnalysis(
     initialMeeting(),

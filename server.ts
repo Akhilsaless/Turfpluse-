@@ -253,7 +253,8 @@ app.post("/api/ai-brain", rateLimit("ai", 5, 60000), async (req, res) => {
       engine: "grok",
       generatedAt: new Date().toISOString(),
     });
-  } catch {
+  } catch (error) {
+    logFailure("grok-analysis", error);
     res.status(503).json({
       error:
         "Grok analysis is temporarily unavailable. Verified race data is unchanged.",

@@ -77,7 +77,11 @@ export async function grokAnalysis(
         : {}),
     }),
   });
-  if (!response.ok) throw new Error("Grok unavailable");
+  if (!response.ok) {
+    throw Object.assign(new Error("Grok unavailable"), {
+      code: `XAI_HTTP_${response.status}`,
+    });
+  }
   const data = await response.json();
   if (!Array.isArray(data.output))
     throw new Error("Grok returned invalid analysis");
