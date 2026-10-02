@@ -60,6 +60,16 @@ test("operator login requires configured strong server credential and denies cro
     401,
   );
 });
+test("health reports incomplete integrations honestly and unknown API routes return JSON", async () => {
+  const health = await invoke("GET", "/api/health");
+  assert.equal(health.status, 200);
+  assert.equal(health.data.integrationsConfigured, false);
+  assert.equal(health.data.checks.database, false);
+  assert.equal(health.data.checks.liveFeedsHealthy, false);
+  const missing = await invoke("GET", "/api/missing");
+  assert.equal(missing.status, 404);
+  assert.deepEqual(missing.data, { error: "Endpoint unavailable" });
+});
 
 test("valid operator session uses HttpOnly cookie and denies cross-origin requests", async () => {
   const previous = process.env.OPS_PASSWORD;

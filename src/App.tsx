@@ -302,7 +302,7 @@ function TurfPulse() {
   );
   const [alert, setAlert] = useState("");
   const [notifications, setNotifications] = useState(false);
-  const { isInstallable, isInstalled, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   useEffect(() => {
     const id = setInterval(() => setClock(Date.now()), 1000);
     const changed = () => setOnline(navigator.onLine);
@@ -402,6 +402,19 @@ function TurfPulse() {
             </button>
           )}
           {isInstalled && <small>Installed</small>}
+          {!isInstallable && !isInstalled && (
+            <button
+              onClick={() =>
+                setAlert(
+                  isIOS
+                    ? "To install TurfPulse, open this link in Safari, tap Share, then Add to Home Screen."
+                    : "To install TurfPulse, open your browser menu and choose Install app or Add to Home screen. If unavailable, you can keep using this link in your browser.",
+                )
+              }
+            >
+              How to install
+            </button>
+          )}
         </div>
       </header>
       <main className="tp-main">

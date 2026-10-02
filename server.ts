@@ -31,7 +31,32 @@ const sessionSecret =
 const sign = (payload: string) =>
   createHmac("sha256", sessionSecret).update(payload).digest("hex");
 
-const failures = new Map<string, { count: number; until: number }>();
+function rateLimit(scope: string, maximum: number, windowMs: number) {
+  return async (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    try {
+      if (
+        process.env.VERCEL === "1" &&
+        (optionalSetting("SESSION_SECRET")?.length || 0) < 32
+      )
+        throw new Error("Stable signing secret required");
+      const ip = req.ip || "unknown";
+      const key = `${scope}:${createHmac("sha256", sessionSecret).update(ip).digest("hex")}`;
+      if (!(await store.consumeRateLimit(key, maximum, windowMs))) {
+        res.set("Retry-After", String(Math.ceil(windowMs / 1000)));
+        return res
+          .status(429)
+          .json({ error: "Please wait before trying again" });
+      }
+      next();
+    } catch {
+      res.status(503).json({ error: "Request temporarily unavailable" });
+    }
+  };
+}
 function operator(req: express.Request) {
   const cookie = req.headers.cookie
     ?.split(";")
@@ -51,12 +76,8 @@ function sameOrigin(req: express.Request) {
     req.headers.origin === `${req.protocol}://${req.get("host")}`
   );
 }
-app.post("/api/ops/login", (req, res) => {
+app.post("/api/ops/login", rateLimit("ops-login", 5, 900000), (req, res) => {
   if (!sameOrigin(req)) return res.status(403).json({ error: "Access denied" });
-  const ip = req.ip || "unknown";
-  const attempts = failures.get(ip);
-  if (attempts && attempts.until > Date.now() && attempts.count >= 5)
-    return res.status(429).json({ error: "Try again later" });
   const secret = optionalSetting("OPS_PASSWORD");
   const signingSecret = optionalSetting("SESSION_SECRET");
   if (
@@ -66,13 +87,8 @@ app.post("/api/ops/login", (req, res) => {
     typeof req.body?.password !== "string" ||
     !equal(req.body.password, secret)
   ) {
-    failures.set(ip, {
-      count: attempts && attempts.until > Date.now() ? attempts.count + 1 : 1,
-      until: Date.now() + 900000,
-    });
     return res.status(401).json({ error: "Operator authentication required" });
   }
-  failures.delete(ip);
   const payload = `${Date.now() + 3600000}_${randomBytes(24).toString("hex")}`;
   res.setHeader(
     "Set-Cookie",
@@ -96,8 +112,8 @@ app.post("/api/ops/change", async (req, res) => {
     const state = await store.mutate((current) =>
       applyChange(current, req.body, actor),
     );
-    res.json({ revision: state.revision });
-    void analyseSaved(state);
+    await analyseSaved(state);
+    res.json({ revision: (await store.read()).revision });
   } catch {
     res.status(422).json({
       error:
@@ -119,6 +135,33 @@ app.get("/api/meeting", async (_req, res) => {
     });
   } catch {
     res.status(503).json({ error: "Verified meeting temporarily unavailable" });
+  }
+});
+app.get("/api/health", async (_req, res) => {
+  try {
+    const state = await store.read();
+    const sources = publicHealth(state, feeds);
+    const checks = {
+      database: store.mode === "postgres",
+      grokConfigured: !!(
+        process.env.XAI_API_KEY || optionalSetting("GROK_API_KEY")
+      ),
+      operatorConfigured:
+        !!optionalSetting("OPS_PASSWORD") &&
+        (optionalSetting("SESSION_SECRET")?.length || 0) >= 32,
+      liveFeedsHealthy:
+        sources.length > 0 &&
+        sources.every((source) => source.state === "healthy"),
+    };
+    res.json({
+      status: "available",
+      integrationsConfigured: Object.values(checks).every(Boolean),
+      checks,
+    });
+  } catch {
+    res
+      .status(503)
+      .json({ status: "unavailable", integrationsConfigured: false });
   }
 });
 async function analyseSaved(state: Awaited<ReturnType<MeetingStore["read"]>>) {
@@ -181,8 +224,7 @@ app.post("/api/sync", async (req, res) => {
       .json({ error: "Update unavailable; verified data retained" });
   }
 });
-const aiLimits = new Map<string, { count: number; until: number }>();
-app.post("/api/ai-brain", async (req, res) => {
+app.post("/api/ai-brain", rateLimit("ai", 5, 60000), async (req, res) => {
   if (!sameOrigin(req)) return res.sendStatus(403);
   const question = req.body?.message || req.body?.question;
   if (
@@ -193,14 +235,6 @@ app.post("/api/ai-brain", async (req, res) => {
     return res
       .status(400)
       .json({ error: "Enter a question up to 3000 characters" });
-  const ip = req.ip || "unknown";
-  let usage = aiLimits.get(ip);
-  if (!usage || usage.until < Date.now()) {
-    usage = { count: 0, until: Date.now() + 60000 };
-    aiLimits.set(ip, usage);
-  }
-  if (++usage.count > 5)
-    return res.status(429).json({ error: "Please wait before asking again" });
   if (!process.env.XAI_API_KEY && !optionalSetting("GROK_API_KEY"))
     return res
       .status(503)
@@ -242,6 +276,9 @@ app.use(
           : "Request temporarily unavailable",
     });
   },
+);
+app.use("/api", (_req, res) =>
+  res.status(404).json({ error: "Endpoint unavailable" }),
 );
 async function start() {
   if (!production) {
@@ -285,6 +322,7 @@ async function start() {
   }
 }
 if (
+  process.env.VERCEL !== "1" &&
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 )

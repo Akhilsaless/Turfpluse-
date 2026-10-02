@@ -7,6 +7,12 @@ create table if not exists turf_snapshots(id text primary key, meeting_id text n
 alter table turf_meetings enable row level security;
 alter table turf_audit enable row level security;
 alter table turf_snapshots enable row level security;
+create table if not exists turf_rate_limits(
+  key text primary key, count integer not null,
+  expires_at timestamptz not null
+);
+alter table turf_rate_limits enable row level security;
+revoke all on turf_meetings, turf_audit, turf_snapshots, turf_rate_limits from anon, authenticated;
 -- No anon/authenticated policies: browser clients access the authenticated server API only.
 create or replace function turf_immutable() returns trigger language plpgsql as $$
 begin raise exception 'Historical records are immutable'; end; $$;

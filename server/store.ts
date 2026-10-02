@@ -8,7 +8,13 @@ import { initialMeeting } from "../src/live/model";
 export class MeetingStore {
   private queue = Promise.resolve();
   private pool = optionalSetting("DATABASE_URL")
-    ? new Pool({ connectionString: optionalSetting("DATABASE_URL") })
+    ? new Pool({
+        connectionString: optionalSetting("DATABASE_URL"),
+        max: 3,
+        connectionTimeoutMillis: 5000,
+        idleTimeoutMillis: 10000,
+        allowExitOnIdle: true,
+      })
     : null;
   private file = path.resolve(
     optionalSetting("DATA_DIR") || ".data",
@@ -19,6 +25,33 @@ export class MeetingStore {
     : optionalSetting("DATA_DIR")
       ? "persistent-volume"
       : "local-file";
+  private limits = new Map<string, { count: number; expires: number }>();
+  async consumeRateLimit(key: string, maximum: number, windowMs: number) {
+    if (this.pool) {
+      const result = await this.pool.query(
+        `insert into turf_rate_limits(key, count, expires_at)
+         values ($1, 1, clock_timestamp() + $2 * interval '1 millisecond')
+         on conflict(key) do update set
+           count = case when turf_rate_limits.expires_at <= clock_timestamp()
+             then 1 else turf_rate_limits.count + 1 end,
+           expires_at = case when turf_rate_limits.expires_at <= clock_timestamp()
+             then clock_timestamp() + $2 * interval '1 millisecond'
+             else turf_rate_limits.expires_at end
+         returning count`,
+        [key, windowMs],
+      );
+      return result.rows[0].count <= maximum;
+    }
+    if (process.env.VERCEL === "1")
+      throw new Error("Shared rate-limit storage is required");
+    const now = Date.now();
+    for (const [id, usage] of this.limits)
+      if (usage.expires <= now) this.limits.delete(id);
+    const usage = this.limits.get(key) || { count: 0, expires: now + windowMs };
+    usage.count++;
+    this.limits.set(key, usage);
+    return usage.count <= maximum;
+  }
   async read(): Promise<Meeting> {
     if (this.pool) {
       const result = await this.pool.query(
@@ -29,6 +62,8 @@ export class MeetingStore {
       if (!isMeeting(state)) throw new Error("Stored meeting is invalid");
       return state;
     }
+    if (process.env.VERCEL === "1")
+      throw new Error("Durable database storage is required on Vercel");
     try {
       const state: unknown = JSON.parse(await fs.readFile(this.file, "utf8"));
       if (!isMeeting(state)) throw new Error("Stored meeting is invalid");
