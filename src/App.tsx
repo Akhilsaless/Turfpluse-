@@ -268,8 +268,12 @@ function Operator({
           <button
             type="button"
             onClick={async () => {
-              await request("/api/ops/logout", {});
-              setSigned(false);
+              try {
+                await request("/api/ops/logout", {});
+                setSigned(false);
+              } catch {
+                setMessage("Sign out failed. Please try again.");
+              }
             }}
           >
             Sign out
@@ -328,8 +332,13 @@ function TurfPulse() {
         notifications &&
         "Notification" in window &&
         Notification.permission === "granted"
-      )
-        new Notification("TurfPulse verified changes", { body: text });
+      ) {
+        try {
+          new Notification("TurfPulse verified changes", { body: text });
+        } catch {
+          setNotifications(false);
+        }
+      }
     }
     if (meeting.events.length)
       safeStorage.setItem("tp-alert-last", meeting.events.at(-1)!.retrievedAt);
@@ -377,7 +386,21 @@ function TurfPulse() {
         <div>
           {time(new Date(clock).toISOString())} IST
           <br />
-          {isInstallable && <button onClick={install}>Install app</button>}
+          {isInstallable && (
+            <button
+              onClick={async () => {
+                try {
+                  await install();
+                } catch {
+                  setAlert(
+                    "Installation is unavailable. Please try again from your browser menu.",
+                  );
+                }
+              }}
+            >
+              Install app
+            </button>
+          )}
           {isInstalled && <small>Installed</small>}
         </div>
       </header>
@@ -466,9 +489,16 @@ function TurfPulse() {
               </p>
               <a
                 href={`#race-${next.id}`}
-                onClick={() => {
+                onClick={(event) => {
+                  event.preventDefault();
                   setTab("races");
+                  setRaceView("cards");
                   setSearch("");
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById(`race-${next.id}`)
+                      ?.scrollIntoView(),
+                  );
                 }}
               >
                 Go to race
@@ -617,9 +647,24 @@ function TurfPulse() {
               ))}
               <button
                 onClick={async () => {
-                  if ("Notification" in window) {
+                  try {
+                    if (!("Notification" in window)) {
+                      setAlert(
+                        "System notifications are unavailable in this browser. Changes still appear in the app.",
+                      );
+                      return;
+                    }
                     const granted = await Notification.requestPermission();
                     setNotifications(granted === "granted");
+                    if (granted !== "granted")
+                      setAlert(
+                        "System notifications are disabled. Changes still appear in the app.",
+                      );
+                  } catch {
+                    setNotifications(false);
+                    setAlert(
+                      "System notifications are unavailable. Changes still appear in the app.",
+                    );
                   }
                 }}
               >

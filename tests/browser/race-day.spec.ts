@@ -48,6 +48,9 @@ test("horses, watchlist, news, source status and prediction history use canonica
   await expect(
     entry.getByRole("button", { name: "Remove from watchlist" }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Go to race", exact: true }).click();
+  await expect(page.locator("#race-r1")).toBeVisible();
+  await expect(page.locator(".tp-directory")).toHaveCount(0);
   await page.getByRole("button", { name: "Track Alerts", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Meeting updates" }),

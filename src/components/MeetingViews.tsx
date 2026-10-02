@@ -213,16 +213,18 @@ export function PredictionHistory({ meeting }: { meeting: Meeting }) {
   return (
     <section aria-label="Prediction history">
       <h2>Prediction history</h2>
-      <label>
-        Race
-        <select value={raceId} onChange={(e) => setRaceId(e.target.value)}>
-          {meeting.races.map((r) => (
-            <option key={r.id} value={r.id}>
-              R{r.number} · {r.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <label htmlFor="prediction-race">Race</label>
+      <select
+        id="prediction-race"
+        value={raceId}
+        onChange={(e) => setRaceId(e.target.value)}
+      >
+        {meeting.races.map((r) => (
+          <option key={r.id} value={r.id}>
+            R{r.number} · {r.name}
+          </option>
+        ))}
+      </select>
       {meeting.snapshots
         .filter((s) => s.raceId === raceId)
         .map((s) => (
