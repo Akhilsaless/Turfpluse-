@@ -1,4 +1,5 @@
 import { optionalSetting } from "./settings";
+import { databaseOptions } from "./database";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Pool } from "pg";
@@ -9,7 +10,7 @@ export class MeetingStore {
   private queue = Promise.resolve();
   private pool = optionalSetting("DATABASE_URL")
     ? new Pool({
-        connectionString: optionalSetting("DATABASE_URL"),
+        ...databaseOptions(optionalSetting("DATABASE_URL")!),
         max: 3,
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 10000,
