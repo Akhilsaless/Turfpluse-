@@ -12,6 +12,11 @@ import "./live/live.css";
 import { isMeeting, readWatchlist } from "./live/validation";
 import { RaceCard } from "./components/LiveRaceCard";
 import { time, dateTime } from "./live/display";
+import {
+  HorseDirectory,
+  MeetingNews,
+  PredictionHistory,
+} from "./components/MeetingViews";
 import { RecoveryBoundary } from "./components/RecoveryBoundary";
 const client = new QueryClient();
 type LiveMeeting = Meeting & {
@@ -279,10 +284,14 @@ function TurfPulse() {
   const { meeting, isError, dataUpdatedAt, refetch } = useMeeting();
   const [tab, setTab] = useState("races");
   const [search, setSearch] = useState("");
+  const [raceView, setRaceView] = useState("cards");
+  const [alertView, setAlertView] = useState("updates");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [clock, setClock] = useState(Date.now());
   const [online, setOnline] = useState(navigator.onLine);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [answerRevision, setAnswerRevision] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [watch, setWatch] = useState<string[]>(() =>
     readWatchlist(safeStorage.getItem("tp-watch-v1")),
@@ -344,11 +353,14 @@ function TurfPulse() {
     setBusy(true);
     try {
       const result = await request("/api/ai-brain", { question });
+      setAnswerRevision(result.sourceRevision);
       setAnswer(
-        `${result.answer}\n\n${result.model} · ${dateTime(result.generatedAt)}`,
+        `${result.answer}\n\nGenerated ${dateTime(result.generatedAt)} · meeting revision ${result.sourceRevision}`,
       );
     } catch (e) {
-      setAnswer((e as Error).message);
+      setAnswer(
+        "Analysis is unavailable right now. Verified race information is still available. Try again shortly.",
+      );
     } finally {
       setBusy(false);
     }
@@ -360,7 +372,7 @@ function TurfPulse() {
       <header className="tp-header">
         <div>
           <span className="tp-brand">TurfPulse</span>
-          <p>Race-day intelligence · Kolkata</p>
+          <p>Royal Calcutta Turf Club · Kolkata</p>
         </div>
         <div>
           {time(new Date(clock).toISOString())} IST
@@ -377,8 +389,9 @@ function TurfPulse() {
           </aside>
         )}
         <section className="tp-meeting">
-          <small>FIRST MEETING · SATURDAY</small>
-          <h1>3 October 2026</h1>
+          <small>THE AUTUMN MEETING · SATURDAY</small>
+          <h1>A clearer view of race day.</h1>
+          <p className="tp-meeting-date">3 October 2026</p>
           <p>
             {meeting.venue} · 10 races ·{" "}
             {meeting.races.reduce((s, r) => s + r.runners.length, 0)}{" "}
@@ -486,82 +499,138 @@ function TurfPulse() {
         </nav>
         {tab === "races" && (
           <>
-            <div className="tp-tools">
-              <input
-                aria-label="Search races or runners"
-                placeholder="Find a race, runner or jockey"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <button onClick={() => void refetch()}>Refresh</button>
+            <div className="tp-subnav">
+              <button
+                aria-pressed={raceView === "cards"}
+                onClick={() => setRaceView("cards")}
+              >
+                Race cards
+              </button>
+              <button
+                aria-pressed={raceView === "horses"}
+                onClick={() => setRaceView("horses")}
+              >
+                Horses
+              </button>
             </div>
-            <p className="tp-note">
-              Win estimates total 100% across active runners. These are
-              uncalibrated declaration-based estimates, with Low confidence. No
-              official results have been assumed.
-            </p>
-            {meeting.races
-              .filter((r) =>
-                JSON.stringify(r).toLowerCase().includes(search.toLowerCase()),
-              )
-              .map((r) => (
-                <RecoveryBoundary key={r.id} label={`Race ${r.number}`}>
-                  <RaceCard
-                    race={r}
-                    meeting={meeting}
-                    watch={watch}
-                    toggle={toggle}
+            {raceView === "horses" ? (
+              <HorseDirectory meeting={meeting} watch={watch} toggle={toggle} />
+            ) : (
+              <>
+                <div className="tp-tools">
+                  <input
+                    aria-label="Search races or runners"
+                    placeholder="Find a race, runner or jockey"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
-                </RecoveryBoundary>
-              ))}
+                  <button onClick={() => void refetch()}>Refresh</button>
+                </div>
+                <p className="tp-note">
+                  Win estimates total 100% across active runners. These are
+                  uncalibrated declaration-based estimates, with Low confidence.
+                  No official results have been assumed.
+                </p>
+                {!meeting.races.some((r) =>
+                  JSON.stringify(r)
+                    .toLowerCase()
+                    .includes(search.toLowerCase()),
+                ) && <p className="tp-empty">No races match your search.</p>}
+                {meeting.races
+                  .filter((r) =>
+                    JSON.stringify(r)
+                      .toLowerCase()
+                      .includes(search.toLowerCase()),
+                  )
+                  .map((r) => (
+                    <RecoveryBoundary key={r.id} label={`Race ${r.number}`}>
+                      <RaceCard
+                        race={r}
+                        meeting={meeting}
+                        watch={watch}
+                        toggle={toggle}
+                        onAsk={() => {
+                          setQuestion(
+                            `Explain R${r.number} (${r.name}). Compare the leading candidates, cite supplied evidence and list missing data.`,
+                          );
+                          document
+                            .getElementById("race-assistant")
+                            ?.scrollIntoView({ behavior: "smooth" });
+                          document
+                            .getElementById("assistant-question")
+                            ?.focus();
+                        }}
+                      />
+                    </RecoveryBoundary>
+                  ))}
+              </>
+            )}
           </>
         )}
         {tab === "alerts" && (
           <>
-            <h2>Source health</h2>
-            {(meeting.sources.length
-              ? meeting.sources
-              : [
-                  {
-                    id: "setup",
-                    name: "Live sources",
-                    state: "disabled",
-                    message:
-                      "No permitted source connected. Verified declarations remain available.",
-                    lastAttempt: null,
-                    lastSuccess: null,
-                    publishedAt: null,
-                    checksum: null,
-                  },
-                ]
-            ).map((s) => (
-              <article className="tp-card" key={s.id}>
-                <h3>
-                  {s.name} · {s.state}
-                </h3>
-                <p>{s.message}</p>
-                <small>
-                  Attempt: {dateTime(s.lastAttempt)} · Success:{" "}
-                  {dateTime(s.lastSuccess)} · Published:{" "}
-                  {dateTime(s.publishedAt)}
-                </small>
-              </article>
-            ))}
-            <button
-              onClick={async () => {
-                if ("Notification" in window) {
-                  const granted = await Notification.requestPermission();
-                  setNotifications(granted === "granted");
-                }
-              }}
-            >
-              Enable alerts while app is open
-            </button>
-            <p>
-              {watch.length} watched runners. Background push delivery is not
-              connected.
-            </p>
-            <h2>Grok change analysis</h2>
+            <div className="tp-subnav">
+              <button
+                aria-pressed={alertView === "updates"}
+                onClick={() => setAlertView("updates")}
+              >
+                Updates & news
+              </button>
+              <button
+                aria-pressed={alertView === "sources"}
+                onClick={() => setAlertView("sources")}
+              >
+                Source status
+              </button>
+            </div>
+            {alertView === "updates" && <MeetingNews meeting={meeting} />}
+            <details open={alertView === "sources"}>
+              <summary>Source status</summary>
+              <h2>Source health</h2>
+              {(meeting.sources.length
+                ? meeting.sources
+                : [
+                    {
+                      id: "setup",
+                      name: "Live sources",
+                      state: "disabled",
+                      message:
+                        "No permitted source connected. Verified declarations remain available.",
+                      lastAttempt: null,
+                      lastSuccess: null,
+                      publishedAt: null,
+                      checksum: null,
+                    },
+                  ]
+              ).map((s) => (
+                <article className="tp-card" key={s.id}>
+                  <h3>
+                    {s.name} · {s.state}
+                  </h3>
+                  <p>{s.message}</p>
+                  <small>
+                    Attempt: {dateTime(s.lastAttempt)} · Success:{" "}
+                    {dateTime(s.lastSuccess)} · Published:{" "}
+                    {dateTime(s.publishedAt)}
+                  </small>
+                </article>
+              ))}
+              <button
+                onClick={async () => {
+                  if ("Notification" in window) {
+                    const granted = await Notification.requestPermission();
+                    setNotifications(granted === "granted");
+                  }
+                }}
+              >
+                Enable alerts while app is open
+              </button>
+              <p>
+                {watch.length} watched runners. Background push delivery is not
+                connected.
+              </p>
+            </details>
+            <h2>Change analysis</h2>
             {meeting.analyses?.length ? (
               <article className="tp-card">
                 <p className="tp-answer">{meeting.analyses.at(-1)!.answer}</p>
@@ -573,33 +642,43 @@ function TurfPulse() {
                 </small>
               </article>
             ) : (
-              <p>Awaiting configured Grok and verified race-day changes.</p>
+              <p>Awaiting connected analysis and verified race-day changes.</p>
             )}
-            <h2>Verified changes</h2>
-            {!meeting.events.length && (
-              <p>No verified race-day changes received.</p>
-            )}
-            {[...meeting.events].reverse().map((e) => (
-              <article className="tp-card" key={e.id}>
-                <h3>
-                  {e.raceId.toUpperCase()} · {e.kind}
-                </h3>
-                <p>{e.reason}</p>
-                <a href={e.sourceUrl} target="_blank" rel="noreferrer">
-                  Source evidence
-                </a>
-                <small>
-                  {" "}
-                  Published {dateTime(e.publishedAt)} · retrieved{" "}
-                  {dateTime(e.retrievedAt)} · {e.actor}
-                </small>
-              </article>
-            ))}
+            <details>
+              <summary>All verified changes</summary>
+              <h2>Verified changes</h2>
+              {!meeting.events.length && (
+                <p>No verified race-day changes received.</p>
+              )}
+              {[...meeting.events].reverse().map((e) => (
+                <article className="tp-card" key={e.id}>
+                  <h3>
+                    {e.raceId.toUpperCase()} · {e.kind}
+                  </h3>
+                  <p>{e.reason}</p>
+                  <a href={e.sourceUrl} target="_blank" rel="noreferrer">
+                    Source evidence
+                  </a>
+                  <small>
+                    {" "}
+                    Published {dateTime(e.publishedAt)} · retrieved{" "}
+                    {dateTime(e.retrievedAt)} · {e.actor}
+                  </small>
+                </article>
+              ))}
+            </details>
           </>
         )}
         {tab === "performance" && (
           <>
             <h2>Performance from official results</h2>
+            <button
+              aria-expanded={historyOpen}
+              onClick={() => setHistoryOpen((v) => !v)}
+            >
+              Prediction history
+            </button>
+            {historyOpen && <PredictionHistory meeting={meeting} />}
             <p>
               Scored races: {metrics.records.length} · Top-pick hit rate:{" "}
               {metrics.hitRate === null
@@ -624,25 +703,34 @@ function TurfPulse() {
             ))}
           </>
         )}
-        <section className="tp-card tp-ai">
-          <h2>Ask Grok</h2>
+        <section className="tp-card tp-ai" id="race-assistant">
+          <small>EXPLAIN · COMPARE · UNDERSTAND</small>
+          <h2>Race assistant</h2>
           <p>
-            Analysis of the verified meeting; source discovery is enabled only
-            by server configuration.
+            Ask about the meeting, compare runners or understand a sourced
+            change. Answers are AI interpretations; race facts come from the
+            recorded evidence.
           </p>
           <form onSubmit={ask}>
             <input
+              id="assistant-question"
               required
               maxLength={3000}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Compare the Derby runners"
-              aria-label="Question for Grok"
+              aria-label="Question for race assistant"
             />
             <button disabled={busy || !online}>
               {busy ? "Analysing…" : "Ask"}
             </button>
           </form>
+          {answerRevision !== null && answerRevision !== meeting.revision && (
+            <p role="status" className="tp-alert">
+              The meeting has changed since this answer. Ask again for a current
+              interpretation.
+            </p>
+          )}
           {answer && (
             <p className="tp-answer" role="status">
               {answer}

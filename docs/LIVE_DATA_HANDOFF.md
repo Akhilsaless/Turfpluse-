@@ -98,3 +98,34 @@ Do not ask for the secret in chat, embed it in generated code, or commit it. Con
 Run the full app with `npm run dev` or production `npm run build` followed by `NODE_ENV=production npm start`. `npm run preview` serves the frontend alone and is not the application's backend. Verify `/api/meeting` returns JSON with all ten races, and `grokConfigured: true`; this flag means a credential is present, not that authentication or account quota has been verified. Then make one real Ask Grok request from the app. The same backend must expose `/api/ops/*` and `/api/sync`.
 
 Verified against the user's AI Studio preview: clicking Full Card blanks the app with `Rendered more hooks than during the previous render` in `RaceDetailModal`. React reports useContext/useState on the previous render and an extra useState after selection. This is caused by calling `useRaceCountdown` after the early selectedRaceId return. The GitHub fix calls that hook on every render before selection guards. The preview was still using the legacy demo context (R1 Opening Sprint Stakes, 1100 m, five runners), not the latest canonical meeting. It also logged a Vite HMR WebSocket failure and WebGL initialization errors; the WebGL component activated its fallback. These are separate from the reproduced fatal modal hook error. Regression checks cover all ten expanded cards, missing predictions and corrupt storage. Full live-feed acceptance still requires provider access, durable storage and a successful real Grok request. No Vercel configuration or deployment is changed.
+
+## Production hardening branch
+
+`production-hardening-oct3` adds canonical horse directory, sourced meeting news, full prediction-history view, contextual race assistant, calmer mobile layout, comparisons for every race, the second reproduced legacy horse-modal hook fix, stored-document validation, AI current-date grounding and revision-labelled answers. The browser suite covers desktop and mobile and is part of GitHub Actions; run `npm run test:browser` after installing Chromium with Playwright.
+
+### Real horse and jockey photographs
+
+The app supports real photographs with attribution in cards, profiles and the horse directory. **The release does not ship unidentified or unlicensed images.** Configure backend-only `RUNNER_PHOTOS_JSON` using photos supplied by the user, club, stable, photographer or a permission-cleared provider. RCTC has a public photo archive, but a public page alone does not establish reuse rights or an exact identity match. Do not scrape images and label them verified by matching a name alone.
+
+Each entry must supply `runnerId`, `kind` (`horse` or `jockey`), `identityName`, `identityVerified: true`, `rightsConfirmed: true`, `url`, `sourceUrl`, `credit`, `verifiedBy` and `verifiedAt`. Use canonical runner IDs and a reviewer-confirmed identity. Example structure (illustrative URLs; not an actual verified photograph):
+
+```json
+[{
+  "runnerId": "r8-h1",
+  "kind": "horse",
+  "identityName": "ADMIRINGLY",
+  "identityVerified": true,
+  "rightsConfirmed": true,
+  "url": "https://YOUR-AUTHORIZED-IMAGE-HOST.example/verified-admiringly.jpg",
+  "sourceUrl": "https://YOUR-PERMISSION-CLEARED-SOURCE.example/horse-profile",
+  "credit": "Photographer / rights holder",
+  "verifiedBy": "Named reviewer",
+  "verifiedAt": "2026-10-02T10:00:00+05:30"
+}]
+```
+
+A jockey mapping requires the current declared jockey's name; replacing a jockey invalidates the previous association. Missing/conflicting identity, missing permission, invalid/future review time, and failed image loads display Photo unavailable. Store images on an authorized HTTPS host with stable URLs; do not use credentials in URLs. Verify the exact horse (stable/registration/pedigree evidence where available), not just a similar spelling or appearance. The schema provides a manual reviewed-photo adapter; automatic acquisition is not active without an authorized provider contract.
+
+### Production acceptance remains a real integration gate
+
+Passing mocked/unit/browser checks verifies the code paths, not the external integrations. Before public race-day release, prove: actual xAI authentication/model access; a permitted feed producing a sourced change visible on a second device; durable state surviving restart; operator authorization and rejection; scratch/reinstate/result correction preserving history; image identity/rights for every displayed real photo; production installation/offline recovery on real phones. A release without live providers must remain explicitly declaration-only. Historic statistics, trained calibration/place estimates, extra meetings and background push must not be described as implemented merely because placeholders exist.

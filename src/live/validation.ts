@@ -81,6 +81,18 @@ export function isMeeting(x: unknown): x is Meeting {
         !(r.pace === null || ["leader", "stalker", "closer"].includes(r.pace))
       )
         return false;
+      for (const photo of [r.horsePhoto, r.jockeyPhoto]) {
+        if (
+          photo !== undefined &&
+          (!object(photo) ||
+            !url(photo.url) ||
+            !url(photo.sourceUrl) ||
+            !text(photo.credit) ||
+            !text(photo.verifiedBy) ||
+            !date(photo.verifiedAt))
+        )
+          return false;
+      }
       runnerIds.add(r.id);
     }
     for (const result of race.results) {

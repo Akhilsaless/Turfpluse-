@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { RunnerPhoto } from "./RunnerPhoto";
 import { latestSnapshot } from "../live/model";
 import type { Meeting, Race, Runner } from "../live/types";
 import { time, dateTime } from "../live/display";
@@ -8,12 +9,14 @@ export function RaceCard({
   watch,
   toggle,
   initialOpen,
+  onAsk,
 }: {
   race: Race;
   meeting: Meeting;
   watch: string[];
   toggle: (id: string) => void;
   initialOpen?: boolean;
+  onAsk?: () => void;
 }) {
   const [open, setOpen] = useState(initialOpen ?? race.number === 1);
   const [selected, setSelected] = useState<string | null>(null);
@@ -35,6 +38,10 @@ export function RaceCard({
   const result = race.results.at(-1);
   const show = (runner: Runner) => (
     <div className="tp-runner-info">
+      <div className="tp-portrait-pair">
+        <RunnerPhoto runner={runner} />
+        <RunnerPhoto runner={runner} kind="jockey" />
+      </div>
       <h4>{runner.name}</h4>
       <ul>
         <li>Declared official rating: {runner.rating}.</li>
@@ -73,7 +80,7 @@ export function RaceCard({
           <small>
             R{race.number} · {time(race.scheduledAt)} IST · {race.distance} m
           </small>
-          <h2>{race.name}</h2>
+          <span className="tp-card-name">{race.name}</span>
         </span>
         <span>
           {race.status}
@@ -111,7 +118,9 @@ export function RaceCard({
             <p key={runner.id}>
               <b>{["Top Pick", "Main Danger", "Third candidate"][index]}:</b>{" "}
               {runner.name} ·{" "}
-              {probability(runner.id)?.toFixed(2) ?? "Unavailable"}%
+              {probability(runner.id) === null
+                ? "Unavailable"
+                : `${probability(runner.id)!.toFixed(2)}%`}
             </p>
           ))}
         </div>
@@ -129,6 +138,11 @@ export function RaceCard({
           {dateTime(changes.at(-1)!.publishedAt)}
         </aside>
       )}
+      {onAsk && (
+        <button className="tp-explain" onClick={onAsk}>
+          Explain this race
+        </button>
+      )}
       {open && (
         <div id={`runners-${race.id}`}>
           <div className="tp-table-wrap">
@@ -140,7 +154,7 @@ export function RaceCard({
                   <th>Draw / weight / rating</th>
                   <th>Win estimate</th>
                   <th>Odds</th>
-                  {race.number === 8 && <th>Compare</th>}
+                  <th>Compare</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +164,7 @@ export function RaceCard({
                     className={r.status === "scratched" ? "tp-scratched" : ""}
                   >
                     <td>
+                      <RunnerPhoto runner={r} />
                       <button
                         className="tp-link"
                         onClick={() =>
@@ -176,7 +191,7 @@ export function RaceCard({
                         : `${probability(r.id)!.toFixed(2)}%`}
                     </td>
                     <td>{r.odds ?? "Unavailable"}</td>
-                    {race.number === 8 && (
+                    {
                       <td>
                         <input
                           type="checkbox"
@@ -191,7 +206,7 @@ export function RaceCard({
                           }
                         />
                       </td>
-                    )}
+                    }
                   </tr>
                 ))}
               </tbody>

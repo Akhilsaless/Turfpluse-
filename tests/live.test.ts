@@ -295,6 +295,10 @@ test("Grok fails explicitly instead of returning invented analysis", async () =>
     async (_url, options) => {
       const body = JSON.parse(options!.body as string);
       assert.match(body.input[1].content, /r10-h12/);
+      const context = JSON.parse(body.input[1].content);
+      assert.ok(Number.isFinite(Date.parse(context.currentTime)));
+      assert.equal(context.meeting.date, "2026-10-03");
+      assert.match(body.input[0].content, /future meeting as today/);
       return new Response(
         JSON.stringify({
           output: [

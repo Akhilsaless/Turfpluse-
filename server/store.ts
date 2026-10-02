@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Pool } from "pg";
 import type { Meeting } from "../src/live/types";
+import { isMeeting } from "../src/live/validation";
 import { initialMeeting } from "../src/live/model";
 export class MeetingStore {
   private queue = Promise.resolve();
@@ -20,10 +21,14 @@ export class MeetingStore {
         "select document from turf_meetings where id=$1",
         [initialMeeting().id],
       );
-      return result.rows[0]?.document || initialMeeting();
+      const state = result.rows[0]?.document || initialMeeting();
+      if (!isMeeting(state)) throw new Error("Stored meeting is invalid");
+      return state;
     }
     try {
-      return JSON.parse(await fs.readFile(this.file, "utf8"));
+      const state: unknown = JSON.parse(await fs.readFile(this.file, "utf8"));
+      if (!isMeeting(state)) throw new Error("Stored meeting is invalid");
+      return state;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       return initialMeeting();

@@ -1,4 +1,13 @@
+export type VerifiedPhoto = {
+  url: string;
+  sourceUrl: string;
+  credit: string;
+  verifiedBy: string;
+  verifiedAt: string;
+};
 export type Runner = {
+  horsePhoto?: VerifiedPhoto;
+  jockeyPhoto?: VerifiedPhoto;
   id: string;
   number: number;
   name: string;

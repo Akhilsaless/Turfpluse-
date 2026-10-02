@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { MeetingStore } from "./server/store";
 import { applyChange } from "./server/events";
 import { configuredFeeds, publicHealth, syncFeeds } from "./server/sources";
+import { withVerifiedPhotos } from "./server/images";
 import { grokAnalysis } from "./server/grok";
 dotenv.config();
 export const app = express();
@@ -62,7 +63,7 @@ app.post("/api/ops/login", (req, res) => {
         process.env.SESSION_SECRET.length < 32)) ||
     !secret ||
     secret.length < 16 ||
-    typeof req.body.password !== "string" ||
+    typeof req.body?.password !== "string" ||
     !equal(req.body.password, secret)
   ) {
     failures.set(ip, {
@@ -108,7 +109,7 @@ app.get("/api/meeting", async (_req, res) => {
   try {
     const state = await store.read();
     res.json({
-      ...state,
+      ...withVerifiedPhotos(state),
       sources: publicHealth(state, feeds),
       storageMode: store.mode,
       grokConfigured: !!(process.env.XAI_API_KEY || process.env.GROK_API_KEY),
@@ -181,7 +182,7 @@ app.post("/api/sync", async (req, res) => {
 const aiLimits = new Map<string, { count: number; until: number }>();
 app.post("/api/ai-brain", async (req, res) => {
   if (!sameOrigin(req)) return res.sendStatus(403);
-  const question = req.body.message || req.body.question;
+  const question = req.body?.message || req.body?.question;
   if (
     typeof question !== "string" ||
     !question.trim() ||
@@ -203,9 +204,12 @@ app.post("/api/ai-brain", async (req, res) => {
       .status(503)
       .json({ error: "Grok analysis is awaiting server configuration" });
   try {
-    const analysis = await grokAnalysis(await store.read(), question);
+    const state = await store.read();
+    const analysis = await grokAnalysis(state, question);
     res.json({
       ...analysis,
+      sourceRevision: state.revision,
+      meetingDate: state.date,
       response: analysis.answer,
       engine: "grok",
       generatedAt: new Date().toISOString(),

@@ -34,8 +34,6 @@ export const HorseProfileModal: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<'3d_stage' | 'stats'>('3d_stage');
 
-  if (!selectedRunnerId) return null;
-
   // Search across all races for the selected runner
   let targetRunner: Runner | undefined;
   let targetRace: Race | undefined;
@@ -49,9 +47,9 @@ export const HorseProfileModal: React.FC = () => {
     }
   }
 
-  if (!targetRunner || !targetRace) return null;
+  const countdown = useRaceCountdown(targetRace?.isoTime ?? "2026-10-03T12:30:00+05:30");
 
-  const countdown = useRaceCountdown(targetRace.isoTime);
+  if (!selectedRunnerId || !targetRunner || !targetRace) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md sm:p-4 overflow-hidden animate-fade-in">
