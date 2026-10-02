@@ -1,3 +1,5 @@
+// ARCHIVED DEMO REFERENCE ONLY. Not mounted by App.tsx. Never use as a live data source.
+// Canonical meeting, audit and predictions: src/live; integration: docs/LIVE_DATA_HANDOFF.md.
 import React from 'react';
 import { useRacing } from '../context/RacingContext';
 import { INITIAL_CALIBRATION } from '../data/initialMeetingData';
@@ -203,3 +205,4 @@ export const HistoryScreen: React.FC = () => {
     </div>
   );
 };
+

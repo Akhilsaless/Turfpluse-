@@ -1,3 +1,5 @@
+// ARCHIVED DEMO REFERENCE ONLY. Not mounted by App.tsx. Never use as a live data source.
+// Canonical meeting, audit and predictions: src/live; integration: docs/LIVE_DATA_HANDOFF.md.
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   Meeting, 
@@ -738,3 +740,4 @@ export function useRacing(): RacingContextType {
   }
   return context;
 }
+

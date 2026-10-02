@@ -1,3 +1,5 @@
+// ARCHIVED DEMO REFERENCE ONLY. Not mounted by App.tsx. Never use as a live data source.
+// Canonical meeting, audit and predictions: src/live; integration: docs/LIVE_DATA_HANDOFF.md.
 import { Meeting, NewsItem, CalibrationBucket } from '../types/racing';
 
 // High-resolution authentic thoroughbred racehorse photography (verified Unsplash CDN)
@@ -2366,3 +2368,4 @@ export const INITIAL_CALIBRATION: CalibrationBucket[] = [
   { range: '10% – 20%', predictionsCount: 22, actualWins: 3, actualWinRate: 13.6, expectedWinRate: 15.0, calibrationDiff: -1.4 },
   { range: '0% – 10%', predictionsCount: 30, actualWins: 1, actualWinRate: 3.3, expectedWinRate: 6.8, calibrationDiff: -3.5 },
 ];
+

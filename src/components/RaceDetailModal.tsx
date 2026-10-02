@@ -39,9 +39,9 @@ export const RaceDetailModal: React.FC = () => {
 
   if (!selectedRaceId) return null;
   const race = meeting.races.find(r => r.id === selectedRaceId);
-  if (!race) return null;
+  const countdown = useRaceCountdown(race?.isoTime ?? "2026-10-03T12:30:00+05:30");
 
-  const countdown = useRaceCountdown(race.isoTime);
+  if (!race) return null;
   const isDerby = race.raceNumber === 8;
   const activeRunners = race.runners.filter(r => r.status !== 'Scratched');
   const scratchedRunners = race.runners.filter(r => r.status === 'Scratched');
@@ -480,3 +480,4 @@ export const RaceDetailModal: React.FC = () => {
     </div>
   );
 };
+
