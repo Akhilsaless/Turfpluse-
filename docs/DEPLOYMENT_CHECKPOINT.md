@@ -25,3 +25,7 @@ The user saved XAI_API_KEY as a production secret. Vercel redeployment was ready
 Replace the rejected XAI_API_KEY securely in Vercel and verify live Grok model access. OPS_PASSWORD is not configured. No real feed or scheduler is active. Authorized source access, source-specific adapters, physical-phone installation, complete desktop/mobile flows, two-device change propagation and the master-plan feature gaps remain incomplete. Direct browser navigation to /api/health was blocked by the browser client; UI meeting fetch and the database-backed rate-limit write were verified instead.
 
 Do not call this a production-ready live racing service until those checks pass. Grok prose must not mutate race facts. Predictions remain uncalibrated declaration baselines.
+
+## Updated key verification — 15:22 IST
+
+The user replaced XAI_API_KEY. Production redeployment dpl_9ZCERMvaqwidyeJ8q7ptk5FMoBbm was Ready in 32 seconds. A live assistant request at 09:51:50 UTC now returns XAI_HTTP_403_CREDIT_REQUIRED, replacing the earlier invalid-key error. This is a provider credit/billing blocker; successful Grok generation is still unverified. The user must resolve their xAI API credit balance directly. OPS_PASSWORD remains absent from the production environment variable list. Live feed access and physical device acceptance remain outstanding. No secret value was read or recorded.
