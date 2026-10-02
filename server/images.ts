@@ -1,3 +1,4 @@
+import { optionalSetting } from "./settings";
 import type { Meeting, VerifiedPhoto } from "../src/live/types";
 
 type PhotoEntry = VerifiedPhoto & {
@@ -20,7 +21,7 @@ const name = (s: string) =>
   s.trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
 export function withVerifiedPhotos(
   meeting: Meeting,
-  raw = process.env.RUNNER_PHOTOS_JSON || "[]",
+  raw = optionalSetting("RUNNER_PHOTOS_JSON") || "[]",
 ): Meeting {
   let entries: PhotoEntry[];
   try {

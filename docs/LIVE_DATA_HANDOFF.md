@@ -1,5 +1,7 @@
 # TurfPulse live-data handoff for AI Studio
 
+**Have only a Grok key?** Start with [AI_STUDIO_KEY_ONLY_SETUP.md](AI_STUDIO_KEY_ONLY_SETUP.md). Keep the existing XAI_API_KEY secret. The app and Grok analysis do not require every advanced setting below. These settings activate additional production integrations; they are not a mandatory startup form.
+
 Pull the current `main` branch. Run Node 22+, `npm ci`, `npm run lint`, `npm test`, and `npm run dev`. The app entry point is `src/App.tsx`; canonical verified data is `src/live/october3.json`. Do not restore the previous `RacingProvider`/simulator fixtures. Old components remain as design references but are not mounted or trusted sources.
 
 ## First meeting
@@ -21,7 +23,7 @@ No live odds, results, penetrometer, rails, weather, horse career strike rates, 
 
 ## Activate real updates in the app's backend
 
-Code is ready for integration; **live source access is not already connected**. Configure backend-only `.env` variables from `.env.example` in AI Studio's runtime/secrets mechanism:
+Code is ready for integration; **live source access is not already connected**. The starter `.env.example` contains only XAI_API_KEY. When activating the additional integrations below, add their backend settings through AI Studio's runtime/secrets mechanism; ordinary defaults do not need secret fields:
 
 1. `XAI_API_KEY`, optional `GROK_MODEL` (default `grok-4.7`). Confirm this model is available to your account. `GROK_WEB_SEARCH=true` enables discovery on `GROK_SEARCH_DOMAINS` (maximum five domains per request). Broader source coverage requires configured permitted feeds, not an unsupported promise of every website.
 2. Dedicated `DATABASE_URL`; apply `server/schema.sql` first. Use a backend-only owner/service database role (with permission to bypass RLS) and a secure DB connection; ordinary browser roles have no table policies. RLS blocks direct browser access; audit/snapshot triggers deny update/delete. PostgreSQL writes lock the meeting row transactionally, so concurrent workers cannot lose changes. Alternatively a single server may use an explicitly persistent `DATA_DIR`. Production refuses writes without either. Local development `.data` is not production persistence.
@@ -84,7 +86,6 @@ Result value: `{"stage":"provisional|official|corrected","placings":["r1-h1","r1
 - Historic form ingestion, source-specific PDF/HTML parsing, actual odds providers, model training/calibration, weather/rails/penetrometer inputs, additional meeting imports and richer result finishing times require actual authorized source contracts. The current seed and API are intentionally limited to the requested first meeting, with typed domain models available to extend.
 - Never label fetched static declarations as a live odds/results feed or Low confidence as validated confidence. Keep source freshness separate from frontend/server connectivity.
 
-
 ## Race-card reliability follow-up (2 October 2026)
 
 The live race card now lives in `src/components/LiveRaceCard.tsx`. Keep it attached to `src/App.tsx` and the canonical live schema; never replace it with the legacy `RaceDetailModal` and demo context. The legacy modal hook-order issue was also repaired, but that modal remains unmounted.
@@ -110,18 +111,20 @@ The app supports real photographs with attribution in cards, profiles and the ho
 Each entry must supply `runnerId`, `kind` (`horse` or `jockey`), `identityName`, `identityVerified: true`, `rightsConfirmed: true`, `url`, `sourceUrl`, `credit`, `verifiedBy` and `verifiedAt`. Use canonical runner IDs and a reviewer-confirmed identity. Example structure (illustrative URLs; not an actual verified photograph):
 
 ```json
-[{
-  "runnerId": "r8-h1",
-  "kind": "horse",
-  "identityName": "ADMIRINGLY",
-  "identityVerified": true,
-  "rightsConfirmed": true,
-  "url": "https://YOUR-AUTHORIZED-IMAGE-HOST.example/verified-admiringly.jpg",
-  "sourceUrl": "https://YOUR-PERMISSION-CLEARED-SOURCE.example/horse-profile",
-  "credit": "Photographer / rights holder",
-  "verifiedBy": "Named reviewer",
-  "verifiedAt": "2026-10-02T10:00:00+05:30"
-}]
+[
+  {
+    "runnerId": "r8-h1",
+    "kind": "horse",
+    "identityName": "ADMIRINGLY",
+    "identityVerified": true,
+    "rightsConfirmed": true,
+    "url": "https://YOUR-AUTHORIZED-IMAGE-HOST.example/verified-admiringly.jpg",
+    "sourceUrl": "https://YOUR-PERMISSION-CLEARED-SOURCE.example/horse-profile",
+    "credit": "Photographer / rights holder",
+    "verifiedBy": "Named reviewer",
+    "verifiedAt": "2026-10-02T10:00:00+05:30"
+  }
+]
 ```
 
 A jockey mapping requires the current declared jockey's name; replacing a jockey invalidates the previous association. Missing/conflicting identity, missing permission, invalid/future review time, and failed image loads display Photo unavailable. Store images on an authorized HTTPS host with stable URLs; do not use credentials in URLs. Verify the exact horse (stable/registration/pedigree evidence where available), not just a similar spelling or appearance. The schema provides a manual reviewed-photo adapter; automatic acquisition is not active without an authorized provider contract.

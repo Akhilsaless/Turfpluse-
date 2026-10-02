@@ -1,12 +1,13 @@
+import { optionalSetting } from "./settings";
 import type { Meeting } from "../src/live/types";
 export async function grokAnalysis(
   meeting: Meeting,
   question: string,
   fetcher = fetch,
 ): Promise<{ answer: string; model: string }> {
-  const key = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+  const key = process.env.XAI_API_KEY || optionalSetting("GROK_API_KEY");
   if (!key) throw new Error("Grok is not configured");
-  const model = process.env.GROK_MODEL || "grok-4.7";
+  const model = optionalSetting("GROK_MODEL") || "grok-4.7";
   const generatedAt = new Date().toISOString();
   const response = await fetcher("https://api.x.ai/v1/responses", {
     method: "POST",
@@ -56,14 +57,14 @@ export async function grokAnalysis(
           }),
         },
       ],
-      ...(process.env.GROK_WEB_SEARCH === "true"
+      ...(optionalSetting("GROK_WEB_SEARCH") === "true"
         ? {
             tools: [
               {
                 type: "web_search",
                 filters: {
                   allowed_domains: (
-                    process.env.GROK_SEARCH_DOMAINS || "rctconline.com"
+                    optionalSetting("GROK_SEARCH_DOMAINS") || "rctconline.com"
                   )
                     .split(",")
                     .map((x) => x.trim())

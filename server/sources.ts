@@ -1,3 +1,4 @@
+import { optionalSetting } from "./settings";
 import { createHash } from "node:crypto";
 import type { Change, Meeting, SourceHealth } from "../src/live/types";
 import { applyChange, validateChange } from "./events";
@@ -13,7 +14,7 @@ export type Feed = {
   tokenEnv?: string;
 };
 export function configuredFeeds(): Feed[] {
-  const feeds = JSON.parse(process.env.RACE_FEEDS_JSON || "[]");
+  const feeds = JSON.parse(optionalSetting("RACE_FEEDS_JSON") || "[]");
   if (!Array.isArray(feeds) || feeds.length > 30)
     throw new Error("Invalid source configuration");
   const ids = new Set();

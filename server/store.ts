@@ -1,3 +1,4 @@
+import { optionalSetting } from "./settings";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Pool } from "pg";
@@ -6,13 +7,16 @@ import { isMeeting } from "../src/live/validation";
 import { initialMeeting } from "../src/live/model";
 export class MeetingStore {
   private queue = Promise.resolve();
-  private pool = process.env.DATABASE_URL
-    ? new Pool({ connectionString: process.env.DATABASE_URL })
+  private pool = optionalSetting("DATABASE_URL")
+    ? new Pool({ connectionString: optionalSetting("DATABASE_URL") })
     : null;
-  private file = path.resolve(process.env.DATA_DIR || ".data", "meeting.json");
+  private file = path.resolve(
+    optionalSetting("DATA_DIR") || ".data",
+    "meeting.json",
+  );
   readonly mode = this.pool
     ? "postgres"
-    : process.env.DATA_DIR
+    : optionalSetting("DATA_DIR")
       ? "persistent-volume"
       : "local-file";
   async read(): Promise<Meeting> {
@@ -39,7 +43,7 @@ export class MeetingStore {
       if (
         process.env.NODE_ENV === "production" &&
         !this.pool &&
-        !process.env.DATA_DIR
+        !optionalSetting("DATA_DIR")
       )
         throw new Error("Durable storage is required");
       if (!this.pool) {

@@ -1,3 +1,4 @@
+import { optionalSetting } from "./server/settings";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +27,7 @@ const equal = (a: string, b: string) => {
   return aa.length === bb.length && timingSafeEqual(aa, bb);
 };
 const sessionSecret =
-  process.env.SESSION_SECRET || randomBytes(32).toString("hex");
+  optionalSetting("SESSION_SECRET") || randomBytes(32).toString("hex");
 const sign = (payload: string) =>
   createHmac("sha256", sessionSecret).update(payload).digest("hex");
 
@@ -42,7 +43,7 @@ function operator(req: express.Request) {
   if (!signature || !equal(signature, sign(payload))) return null;
   const expires = Number(payload.split("_")[0]);
   if (!Number.isFinite(expires) || expires < Date.now()) return null;
-  return `ops:${process.env.OPS_ACTOR || "operator"}`;
+  return `ops:${optionalSetting("OPS_ACTOR") || "operator"}`;
 }
 function sameOrigin(req: express.Request) {
   return (
@@ -56,11 +57,10 @@ app.post("/api/ops/login", (req, res) => {
   const attempts = failures.get(ip);
   if (attempts && attempts.until > Date.now() && attempts.count >= 5)
     return res.status(429).json({ error: "Try again later" });
-  const secret = process.env.OPS_PASSWORD;
+  const secret = optionalSetting("OPS_PASSWORD");
+  const signingSecret = optionalSetting("SESSION_SECRET");
   if (
-    (production &&
-      (!process.env.SESSION_SECRET ||
-        process.env.SESSION_SECRET.length < 32)) ||
+    (production && (!signingSecret || signingSecret.length < 32)) ||
     !secret ||
     secret.length < 16 ||
     typeof req.body?.password !== "string" ||
@@ -112,7 +112,9 @@ app.get("/api/meeting", async (_req, res) => {
       ...withVerifiedPhotos(state),
       sources: publicHealth(state, feeds),
       storageMode: store.mode,
-      grokConfigured: !!(process.env.XAI_API_KEY || process.env.GROK_API_KEY),
+      grokConfigured: !!(
+        process.env.XAI_API_KEY || optionalSetting("GROK_API_KEY")
+      ),
       servedAt: new Date().toISOString(),
     });
   } catch {
@@ -121,9 +123,9 @@ app.get("/api/meeting", async (_req, res) => {
 });
 async function analyseSaved(state: Awaited<ReturnType<MeetingStore["read"]>>) {
   if (
-    process.env.AUTO_ANALYSE !== "true" ||
+    optionalSetting("AUTO_ANALYSE") !== "true" ||
     !state.events.length ||
-    (!process.env.XAI_API_KEY && !process.env.GROK_API_KEY)
+    (!process.env.XAI_API_KEY && !optionalSetting("GROK_API_KEY"))
   )
     return;
   const latestEventId = state.events.at(-1)!.id;
@@ -163,7 +165,7 @@ async function runSync() {
   return await store.read();
 }
 app.post("/api/sync", async (req, res) => {
-  const token = process.env.SYNC_SECRET;
+  const token = optionalSetting("SYNC_SECRET");
   if (
     !token ||
     token.length < 24 ||
@@ -199,7 +201,7 @@ app.post("/api/ai-brain", async (req, res) => {
   }
   if (++usage.count > 5)
     return res.status(429).json({ error: "Please wait before asking again" });
-  if (!process.env.XAI_API_KEY && !process.env.GROK_API_KEY)
+  if (!process.env.XAI_API_KEY && !optionalSetting("GROK_API_KEY"))
     return res
       .status(503)
       .json({ error: "Grok analysis is awaiting server configuration" });
@@ -233,14 +235,12 @@ app.use(
   ) => {
     if (!req.path.startsWith("/api/")) return next(error);
     const status = (error as { status?: number })?.status === 400 ? 400 : 503;
-    res
-      .status(status)
-      .json({
-        error:
-          status === 400
-            ? "Invalid request body"
-            : "Request temporarily unavailable",
-      });
+    res.status(status).json({
+      error:
+        status === 400
+          ? "Invalid request body"
+          : "Request temporarily unavailable",
+    });
   },
 );
 async function start() {
@@ -263,7 +263,7 @@ async function start() {
   );
   if (
     feeds.some((f) => f.licenseConfirmed) &&
-    process.env.AUTO_SYNC === "true"
+    optionalSetting("AUTO_SYNC") === "true"
   ) {
     let syncing = false;
     const refresh = async () => {
@@ -280,7 +280,7 @@ async function start() {
     void refresh();
     setInterval(
       () => void refresh(),
-      Math.max(30000, Number(process.env.SYNC_INTERVAL_MS) || 60000),
+      Math.max(30000, Number(optionalSetting("SYNC_INTERVAL_MS")) || 60000),
     );
   }
 }
