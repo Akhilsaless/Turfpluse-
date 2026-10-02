@@ -14,8 +14,9 @@ create table if not exists turf_rate_limits(
 alter table turf_rate_limits enable row level security;
 revoke all on turf_meetings, turf_audit, turf_snapshots, turf_rate_limits from anon, authenticated;
 -- No anon/authenticated policies: browser clients access the authenticated server API only.
-create or replace function turf_immutable() returns trigger language plpgsql as $$
+create or replace function turf_immutable() returns trigger language plpgsql set search_path = '' as $$
 begin raise exception 'Historical records are immutable'; end; $$;
+revoke execute on function turf_immutable() from public, anon, authenticated;
 drop trigger if exists turf_audit_immutable on turf_audit;
 create trigger turf_audit_immutable before update or delete on turf_audit for each row execute function turf_immutable();
 drop trigger if exists turf_snapshots_immutable on turf_snapshots;
