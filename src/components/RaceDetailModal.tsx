@@ -37,11 +37,10 @@ export const RaceDetailModal: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'runners' | '3d_stage' | 'timeline' | 'speed_map'>('runners');
 
-  if (!selectedRaceId) return null;
   const race = meeting.races.find(r => r.id === selectedRaceId);
   const countdown = useRaceCountdown(race?.isoTime ?? "2026-10-03T12:30:00+05:30");
 
-  if (!race) return null;
+  if (!selectedRaceId || !race) return null;
   const isDerby = race.raceNumber === 8;
   const activeRunners = race.runners.filter(r => r.status !== 'Scratched');
   const scratchedRunners = race.runners.filter(r => r.status === 'Scratched');

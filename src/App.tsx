@@ -5,10 +5,14 @@ import {
   useQuery,
 } from "@tanstack/react-query";
 import { get, set } from "idb-keyval";
-import { initialMeeting, latestSnapshot, performance } from "./live/model";
-import type { Meeting, Race, Runner, Change } from "./live/types";
+import { initialMeeting, performance } from "./live/model";
+import type { Meeting, Change } from "./live/types";
 import { usePWAInstall } from "./hooks/usePWAInstall";
 import "./live/live.css";
+import { isMeeting, readWatchlist } from "./live/validation";
+import { RaceCard } from "./components/LiveRaceCard";
+import { time, dateTime } from "./live/display";
+import { RecoveryBoundary } from "./components/RecoveryBoundary";
 const client = new QueryClient();
 type LiveMeeting = Meeting & {
   servedAt?: string;
@@ -35,18 +39,9 @@ const safeStorage = {
   },
 };
 const cacheKey = "turfpulse-verified-rctc-2026-10-03-v1";
-const time = (date: string) =>
-  new Date(date).toLocaleTimeString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-const dateTime = (date: string | null) =>
-  date
-    ? new Date(date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
-    : "Not available";
 async function request(url: string, body?: unknown) {
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(url === "/api/ai-brain" ? 60000 : 15000),
     ...(body === undefined
       ? {}
       : {
@@ -64,12 +59,8 @@ function useMeeting() {
     queryKey: ["meeting"],
     queryFn: async () => {
       const data = await request("/api/meeting");
-      if (
-        data.id !== initialMeeting().id ||
-        !Array.isArray(data.races) ||
-        data.races.length !== 10
-      )
-        throw new Error("Invalid meeting response");
+      if (!isMeeting(data))
+        throw new Error("Verified race data is temporarily unavailable");
       void set(cacheKey, data).catch(() => {});
       return data;
     },
@@ -81,10 +72,7 @@ function useMeeting() {
   useEffect(() => {
     void get<LiveMeeting>(cacheKey)
       .then((data) => {
-        if (
-          data?.id === initialMeeting().id &&
-          !client.getQueryData(["meeting"])
-        )
+        if (isMeeting(data) && !client.getQueryData(["meeting"]))
           client.setQueryData(["meeting"], data);
       })
       .catch(() => {});
@@ -93,188 +81,6 @@ function useMeeting() {
     safeStorage.removeItem("turfpulse_gemini_key");
   }, []);
   return { ...query, meeting: (query.data || initialMeeting()) as LiveMeeting };
-}
-function RaceCard({
-  race,
-  meeting,
-  watch,
-  toggle,
-}: {
-  race: Race;
-  meeting: Meeting;
-  watch: string[];
-  toggle: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(race.number === 1);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [compare, setCompare] = useState<string[]>([]);
-  const snap = latestSnapshot(meeting, race.id);
-  const ranked = [...race.runners]
-    .filter((r) => r.status === "declared")
-    .sort((a, b) => snap.probabilities[b.id] - snap.probabilities[a.id]);
-  const result = race.results.at(-1);
-  const show = (runner: Runner) => (
-    <div className="tp-runner-info">
-      <h4>{runner.name}</h4>
-      <ul>
-        <li>Declared official rating: {runner.rating}.</li>
-        <li>
-          Declared weight {runner.weight} kg; draw {runner.draw}.
-        </li>
-        <li>
-          {race.distance} m field has {ranked.length} active runners; estimate
-          uses available declarations
-          {runner.pace ? ` and verified ${runner.pace} pace` : ""}.
-        </li>
-      </ul>
-      <p>
-        <b>Risk:</b> Uncalibrated baseline; historical form, track suitability
-        and jockey/trainer strike rates are unavailable.
-      </p>
-      <p>
-        Form: {runner.form || "Awaiting verified form"} · Pace:{" "}
-        {runner.pace || "Awaiting verified pace"} · Odds:{" "}
-        {runner.odds ?? "Unavailable"}
-      </p>
-      <button onClick={() => toggle(runner.id)}>
-        {watch.includes(runner.id) ? "Remove from watchlist" : "Watch runner"}
-      </button>
-    </div>
-  );
-  return (
-    <article className="tp-card">
-      <button
-        className="tp-race-title"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <span>
-          <small>
-            R{race.number} · {time(race.scheduledAt)} IST · {race.distance} m
-          </small>
-          <h2>{race.name}</h2>
-        </span>
-        <span>
-          {race.status}
-          <br />
-          {open ? "−" : "+"}
-        </span>
-      </button>
-      <div className="tp-summary">
-        <span>
-          {ranked.length}/{race.runners.length} active · Going:{" "}
-          {race.going || "awaiting verification"}
-        </span>
-        <span>Confidence: Low · uncalibrated</span>
-      </div>
-      {result ? (
-        <p className="tp-result">
-          {result.stage} result · v{result.version}:{" "}
-          {result.placings
-            .map((id) => race.runners.find((r) => r.id === id)?.name)
-            .join(" → ")}{" "}
-          ·{" "}
-          <a href={result.sourceUrl} target="_blank" rel="noreferrer">
-            source
-          </a>
-        </p>
-      ) : (
-        <p className="tp-pick">
-          Baseline leader: {ranked[0]?.name || "No active runners"} · latest
-          snapshot {dateTime(snap.at)}
-        </p>
-      )}
-      {open && (
-        <>
-          <div className="tp-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Runner</th>
-                  <th>Jockey / trainer</th>
-                  <th>Draw / weight / rating</th>
-                  <th>Win estimate</th>
-                  <th>Odds</th>
-                  {race.number === 8 && <th>Compare</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {race.runners.map((r) => (
-                  <tr
-                    key={r.id}
-                    className={r.status === "scratched" ? "tp-scratched" : ""}
-                  >
-                    <td>
-                      <button
-                        className="tp-link"
-                        onClick={() =>
-                          setSelected(selected === r.id ? null : r.id)
-                        }
-                      >
-                        #{r.number} {r.name}
-                      </button>
-                      <small>
-                        {r.status}
-                        {watch.includes(r.id) ? " · watching" : ""}
-                      </small>
-                    </td>
-                    <td>
-                      {r.jockey}
-                      <small>{r.trainer}</small>
-                    </td>
-                    <td>
-                      {r.draw} / {r.weight} kg / {r.rating}
-                    </td>
-                    <td>{snap.probabilities[r.id].toFixed(2)}%</td>
-                    <td>{r.odds ?? "Unavailable"}</td>
-                    {race.number === 8 && (
-                      <td>
-                        <input
-                          type="checkbox"
-                          aria-label={`Compare ${r.name}`}
-                          checked={compare.includes(r.id)}
-                          onChange={() =>
-                            setCompare(
-                              compare.includes(r.id)
-                                ? compare.filter((id) => id !== r.id)
-                                : [...compare.slice(-1), r.id],
-                            )
-                          }
-                        />
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {selected && show(race.runners.find((r) => r.id === selected)!)}
-          {compare.length === 2 && (
-            <div className="tp-compare">
-              {compare.map((id) => (
-                <div key={id}>
-                  {show(race.runners.find((r) => r.id === id)!)}
-                </div>
-              ))}
-            </div>
-          )}
-          <details>
-            <summary>
-              Immutable prediction history (
-              {meeting.snapshots.filter((s) => s.raceId === race.id).length})
-            </summary>
-            {meeting.snapshots
-              .filter((s) => s.raceId === race.id)
-              .map((s) => (
-                <p key={s.id}>
-                  {dateTime(s.at)} · {s.phase} · {s.model} · {s.evidence}
-                </p>
-              ))}
-          </details>
-        </>
-      )}
-    </article>
-  );
 }
 function Operator({
   meeting,
@@ -478,13 +284,9 @@ function TurfPulse() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
-  const [watch, setWatch] = useState<string[]>(() => {
-    try {
-      return JSON.parse(safeStorage.getItem("tp-watch-v1") || "[]");
-    } catch {
-      return [];
-    }
-  });
+  const [watch, setWatch] = useState<string[]>(() =>
+    readWatchlist(safeStorage.getItem("tp-watch-v1")),
+  );
   const [alert, setAlert] = useState("");
   const [notifications, setNotifications] = useState(false);
   const { isInstallable, isInstalled, install } = usePWAInstall();
@@ -568,6 +370,12 @@ function TurfPulse() {
         </div>
       </header>
       <main className="tp-main">
+        {isError && (
+          <aside className="tp-alert" role="status">
+            Live updates are temporarily unavailable. Showing the last verified
+            meeting; retrying automatically.
+          </aside>
+        )}
         <section className="tp-meeting">
           <small>FIRST MEETING · SATURDAY</small>
           <h1>3 October 2026</h1>
@@ -609,6 +417,52 @@ function TurfPulse() {
             rails, penetrometer and weather awaiting verification
           </small>
         </section>
+        {(() => {
+          const next =
+            meeting.races.find((r) => r.status === "running") ||
+            meeting.races.find((r) =>
+              ["scheduled", "delayed"].includes(r.status),
+            );
+          if (!next)
+            return (
+              <section className="tp-card">
+                <h2>No pending races</h2>
+                <p>
+                  Review recorded results, cancellations and prediction history
+                  below.
+                </p>
+              </section>
+            );
+          const seconds = Math.max(
+            0,
+            Math.ceil((Date.parse(next.scheduledAt) - clock) / 1000),
+          );
+          return (
+            <section className="tp-card">
+              <h2>
+                {next.status === "running" ? "Racing now" : "Next race"}: R
+                {next.number} · {next.name}
+              </h2>
+              <p>
+                {time(next.scheduledAt)} IST · {next.distance} m ·{" "}
+                {next.status === "running"
+                  ? "In progress"
+                  : seconds === 0
+                    ? "Awaiting verified start update"
+                    : `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}s`}
+              </p>
+              <a
+                href={`#race-${next.id}`}
+                onClick={() => {
+                  setTab("races");
+                  setSearch("");
+                }}
+              >
+                Go to race
+              </a>
+            </section>
+          );
+        })()}
         {alert && (
           <aside role="status" className="tp-alert">
             {alert}
@@ -651,13 +505,14 @@ function TurfPulse() {
                 JSON.stringify(r).toLowerCase().includes(search.toLowerCase()),
               )
               .map((r) => (
-                <RaceCard
-                  key={r.id}
-                  race={r}
-                  meeting={meeting}
-                  watch={watch}
-                  toggle={toggle}
-                />
+                <RecoveryBoundary key={r.id} label={`Race ${r.number}`}>
+                  <RaceCard
+                    race={r}
+                    meeting={meeting}
+                    watch={watch}
+                    toggle={toggle}
+                  />
+                </RecoveryBoundary>
               ))}
           </>
         )}
@@ -805,7 +660,9 @@ function TurfPulse() {
 export default function App() {
   return (
     <QueryClientProvider client={client}>
-      <TurfPulse />
+      <RecoveryBoundary label="Race meeting">
+        <TurfPulse />
+      </RecoveryBoundary>
     </QueryClientProvider>
   );
 }

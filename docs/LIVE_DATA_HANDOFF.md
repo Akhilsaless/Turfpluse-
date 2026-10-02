@@ -83,3 +83,18 @@ Result value: `{"stage":"provisional|official|corrected","placings":["r1-h1","r1
 - Per-user SSO/roles and revocable sessions for multiple operators remain a separate integration; operator password is a single backend account. `SESSION_SECRET` must match across server replicas.
 - Historic form ingestion, source-specific PDF/HTML parsing, actual odds providers, model training/calibration, weather/rails/penetrometer inputs, additional meeting imports and richer result finishing times require actual authorized source contracts. The current seed and API are intentionally limited to the requested first meeting, with typed domain models available to extend.
 - Never label fetched static declarations as a live odds/results feed or Low confidence as validated confidence. Keep source freshness separate from frontend/server connectivity.
+
+
+## Race-card reliability follow-up (2 October 2026)
+
+The live race card now lives in `src/components/LiveRaceCard.tsx`. Keep it attached to `src/App.tsx` and the canonical live schema; never replace it with the legacy `RaceDetailModal` and demo context. The legacy modal hook-order issue was also repaired, but that modal remains unmounted.
+
+This follow-up validates complete meeting responses and offline cache structures, rejects corrupt watchlist values, safely handles missing probability/runner selections, isolates card rendering failures, and bounds requests. It also adds a next-race countdown, one-tap race navigation, top-three summaries with explicit baseline limitations, and per-race sourced change timelines. These changes do not activate a provider feed or validate forecasts.
+
+### Reuse the key already entered in AI Studio
+
+Do not ask for the secret in chat, embed it in generated code, or commit it. Confirm that the saved **xAI Grok** credential is exposed to the backend Node process as `XAI_API_KEY` (the existing `GROK_API_KEY` server alias also works). A Google/Gemini credential cannot authenticate xAI. Merely saving a key in an AI Studio UI does not prove that the Express backend receives it.
+
+Run the full app with `npm run dev` or production `npm run build` followed by `NODE_ENV=production npm start`. `npm run preview` serves the frontend alone and is not the application's backend. Verify `/api/meeting` returns JSON with all ten races, and `grokConfigured: true`; this flag means a credential is present, not that authentication or account quota has been verified. Then make one real Ask Grok request from the app. The same backend must expose `/api/ops/*` and `/api/sync`.
+
+Verified against the user's AI Studio preview: clicking Full Card blanks the app with `Rendered more hooks than during the previous render` in `RaceDetailModal`. React reports useContext/useState on the previous render and an extra useState after selection. This is caused by calling `useRaceCountdown` after the early selectedRaceId return. The GitHub fix calls that hook on every render before selection guards. The preview was still using the legacy demo context (R1 Opening Sprint Stakes, 1100 m, five runners), not the latest canonical meeting. It also logged a Vite HMR WebSocket failure and WebGL initialization errors; the WebGL component activated its fallback. These are separate from the reproduced fatal modal hook error. Regression checks cover all ten expanded cards, missing predictions and corrupt storage. Full live-feed acceptance still requires provider access, durable storage and a successful real Grok request. No Vercel configuration or deployment is changed.
